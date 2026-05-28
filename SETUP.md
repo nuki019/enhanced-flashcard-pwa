@@ -1,310 +1,219 @@
-# 智能闪卡学习系统 - 安装和使用指南
+# 安装和使用指南
 
-## 快速开始
+## 怎么跑起来
 
-### 方法一：直接打开使用
+### 最简单的方式
 
-1. 下载整个 `enhanced-flashcard-pwa` 文件夹
-2. 用浏览器打开 `index.html` 文件
-3. 开始使用！
+下载整个文件夹，双击打开 `index.html` 就行。
 
-**注意**：直接打开文件时，Service Worker 功能可能不可用（离线功能）。建议使用方法二获得完整体验。
+不过有个问题：直接打开文件的话，Service Worker 那套离线功能可能用不了。想要完整体验的话，建议用下面的方法。
 
-### 方法二：本地服务器运行（推荐）
+### 本地服务器（推荐）
 
-使用 Python 启动本地服务器：
+用Python起个本地服务器：
 
 ```bash
 cd enhanced-flashcard-pwa
 python -m http.server 8000
 ```
 
-然后在浏览器中访问：`http://localhost:8000`
+然后浏览器访问 `http://localhost:8000`
 
-### 方法三：部署到 GitHub Pages
+### 部署到GitHub Pages
 
-1. 创建 GitHub 仓库
-2. 上传所有文件
-3. 在仓库设置中启用 GitHub Pages
-4. 访问 `https://yourusername.github.io/repository-name/`
+1. 建个GitHub仓库
+2. 把文件都传上去
+3. 仓库设置里开启GitHub Pages
+4. 访问 `https://你的用户名.github.io/仓库名/`
 
-## 添加到主屏幕
+## 加到手机主屏幕
 
-### iPhone/iPad (Safari)
+### iPhone/iPad
 
-1. 用 Safari 打开应用
-2. 点击底部的"分享"按钮（方框+箭头图标）
-3. 滚动找到"添加到主屏幕"
-4. 点击"添加"
+1. 用Safari打开
+2. 点底部的分享按钮（方框带箭头那个）
+3. 往下翻，找到"添加到主屏幕"
+4. 点"添加"
 
-### Android (Chrome)
+### Android
 
-1. 用 Chrome 打开应用
-2. 点击右上角的三个点菜单
-3. 选择"添加到主屏幕"或"安装应用"
-4. 按照提示完成安装
+1. 用Chrome打开
+2. 点右上角三个点
+3. 选"添加到主屏幕"或"安装应用"
+4. 按提示来就行
 
-## 功能说明
+## 功能介绍
 
-### 1. 间隔重复算法
+### 评分和复习
 
-应用采用基于艾宾浩斯遗忘曲线的智能复习算法：
+每张卡片可以打1-5分：
 
-- **评分 1-2 分**：重新学习，短时间内再次出现
-- **评分 3 分**：保持当前间隔
-- **评分 4-5 分**：增加复习间隔
+- 1-2分：说明没记住，很快会再出现
+- 3分：马马虎虎，保持当前间隔
+- 4-5分：记住了，下次复习间隔拉长
 
-系统会自动计算：
-- 保留率：预测你对内容的记忆程度
-- 下次复习时间：智能安排最佳复习时机
+系统会根据你的评分自动算出最佳复习时间，还会显示一个"保留率"指标，大概是预测你还记得多少。
 
-### 2. 富文本支持
+### Markdown支持
 
-卡片内容支持 Markdown 格式：
+卡片内容支持Markdown，常用的语法都能用：
 
-```markdown
-# 标题
-## 二级标题
+- **粗体** 和 *斜体*
+- `行内代码` 和代码块
+- 表格
+- 图片（通过URL）
+- 列表（有序和无序）
 
-**粗体文本**
-*斜体文本*
+### 标签
 
-- 列表项1
-- 列表项2
+给卡片打标签，方便分类复习。比如可以把所有"算法"相关的卡片都打上"算法"标签，然后单独筛出来复习。
 
-1. 有序列表1
-2. 有序列表2
+### 搜索
 
-`行内代码`
-
-```javascript
-// 代码块
-function hello() {
-  console.log('Hello!');
-}
-```
-
-| 表头1 | 表头2 |
-|-------|-------|
-| 内容1 | 内容2 |
-
-![图片描述](https://example.com/image.jpg)
-```
-
-### 3. 标签系统
-
-- 为卡片添加多个标签
-- 按标签筛选卡片
-- 查看标签云
-- 多标签组合筛选
-
-### 4. 搜索功能
-
-- 全文搜索（题目、答案、标签、章节）
-- 实时搜索结果
-- 搜索历史记录
-- 搜索结果高亮
+搜题目、答案、标签、章节都行。有搜索历史，重复搜同样的词不用重新打。
 
 ## 自定义题库
 
-### 题库格式
-
-编辑 `data/cards.js` 文件，格式如下：
+编辑 `data/cards.js` 文件，格式大概这样：
 
 ```javascript
 window.FLASHCARD_DATA = {
   cards: [
     {
-      id: "unique-id",           // 唯一标识符
-      number: "001",             // 题号（可选）
-      chapter: "第一章",          // 章节
-      kind: "概念题",             // 题目类型
-      mode: "subjective",        // subjective(主观) 或 objective(客观)
-      tags: ["标签1", "标签2"],  // 标签数组
-      question: "## 问题标题\n\n问题内容（支持Markdown）",
-      answer: "## 答案\n\n答案内容（支持Markdown）"
-    },
-    // 更多卡片...
+      id: "001",                    // 唯一ID
+      number: "1",                  // 题号
+      chapter: "第一章",            // 章节
+      kind: "概念题",               // 题型
+      mode: "subjective",           // subjective=主观, objective=客观
+      tags: ["基础", "概念"],       // 标签
+      question: "## 这是题目\n\n题目内容",
+      answer: "## 这是答案\n\n答案内容"
+    }
+    // 继续加...
   ]
 };
 ```
 
-### 从 CSV 导入
+### 从CSV导入
 
-如果你有 CSV 格式的题库，可以使用以下脚本转换：
+如果你有CSV格式的题库，可以在浏览器控制台跑这个脚本转换：
 
 ```javascript
-// 在浏览器控制台运行
 function csvToCards(csvText) {
-  const lines = csvText.split('\n');
-  const headers = lines[0].split(',');
-  const cards = [];
+  var lines = csvText.split("\n");
+  var headers = lines[0].split(",");
+  var cards = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',');
+  for (var i = 1; i < lines.length; i++) {
+    var values = lines[i].split(",");
     if (values.length >= 3) {
       cards.push({
-        id: `card-${i}`,
-        number: values[0] || '',
-        chapter: values[1] || '',
-        kind: '概念题',
-        mode: 'subjective',
-        tags: values[4] ? values[4].split(';') : [],
-        question: values[2] || '',
-        answer: values[3] || ''
+        id: "card-" + i,
+        number: values[0] || "",
+        chapter: values[1] || "",
+        kind: "概念题",
+        mode: "subjective",
+        tags: values[4] ? values[4].split(";") : [],
+        question: values[2] || "",
+        answer: values[3] || ""
       });
     }
   }
 
-  return { cards };
+  return { cards: cards };
 }
 ```
 
-## 数据存储
+## 数据存在哪
 
-所有学习数据都保存在浏览器的 localStorage 中：
+学习数据都存在浏览器的localStorage里：
 
-- `xg-enhanced-flashcard-progress-v1`: 学习进度和间隔重复数据
-- `xg-enhanced-flashcard-session-v1`: 当前会话数据
-- `xg-enhanced-flashcard-settings-v1`: 用户设置
-- `xg-flashcard-search-history`: 搜索历史
+- `xg-card-progress-v2`：学习进度
+- `xg-card-session-v2`：当前会话
+- `xg-card-settings-v2`：用户设置
+- `xg-flashcard-search-history`：搜索历史
 
-### 导出数据
+### 导出备份
 
-在浏览器控制台运行：
+在控制台跑这段代码：
 
 ```javascript
-const data = {
-  progress: JSON.parse(localStorage.getItem('xg-enhanced-flashcard-progress-v1')),
-  settings: JSON.parse(localStorage.getItem('xg-enhanced-flashcard-settings-v1'))
+var data = {
+  progress: JSON.parse(localStorage.getItem("xg-card-progress-v2")),
+  settings: JSON.parse(localStorage.getItem("xg-card-settings-v2"))
 };
 
-const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-const url = URL.createObjectURL(blob);
-const a = document.createElement('a');
+var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+var url = URL.createObjectURL(blob);
+var a = document.createElement("a");
 a.href = url;
-a.download = 'flashcard-backup.json';
+a.download = "flashcard-backup.json";
 a.click();
 ```
 
-### 导入数据
+### 恢复备份
 
 ```javascript
-// 假设你有备份文件的内容
-const backup = { /* ... */ };
-localStorage.setItem('xg-enhanced-flashcard-progress-v1', JSON.stringify(backup.progress));
-localStorage.setItem('xg-enhanced-flashcard-settings-v1', JSON.stringify(backup.settings));
+// 假设你有备份内容
+var backup = { /* ... */ };
+localStorage.setItem("xg-card-progress-v2", JSON.stringify(backup.progress));
+localStorage.setItem("xg-card-settings-v2", JSON.stringify(backup.settings));
 location.reload();
 ```
 
-## 键盘快捷键
+## 键盘操作
 
-- **空格/回车**: 翻转卡片
-- **右箭头**: 下一张卡片
-- **1-5**: 评分
-- **Esc**: 关闭面板
+- 空格/回车：翻卡片
+- 右箭头：下一张
+- 1-5：评分
+- Esc：关面板
 
-## 浏览器兼容性
+## 浏览器要求
 
-支持所有现代浏览器：
+现代浏览器都行：
+
 - Chrome 60+
 - Firefox 55+
 - Safari 11+
 - Edge 79+
 
-## 故障排除
+## 常见问题
 
-### 问题：应用无法离线使用
+### 离线用不了
 
-**解决方案**：
-- 确保通过 HTTPS 或 localhost 访问
-- 清除浏览器缓存后重新加载
-- 检查 Service Worker 是否注册成功（开发者工具 -> Application -> Service Workers）
+确保通过HTTPS或localhost访问。如果是直接打开文件，离线功能不支持。
 
-### 问题：学习进度丢失
+### 进度丢了
 
-**解决方案**：
-- 不要清除浏览器数据
-- 定期导出备份
-- 使用同一浏览器访问
+别清浏览器数据。建议定期导出备份。
 
-### 问题：Markdown 不渲染
+### Markdown没渲染
 
-**解决方案**：
-- 检查 Markdown 语法是否正确
-- 确保代码块使用三个反引号
-- 刷新页面重试
+检查语法对不对，代码块要用三个反引号。实在不行刷新试试。
 
-## 开发说明
+## 项目结构
 
-### 项目结构
-
-```
+```text
 enhanced-flashcard-pwa/
-├── index.html              # 应用入口
-├── app.js                  # 主应用逻辑
-├── spaced-repetition.js    # 间隔重复算法
-├── richtext.js            # 富文本处理
-├── tags.js                # 标签系统
-├── search.js              # 搜索功能
-├── styles.css             # 样式文件
-├── sw.js                  # Service Worker
-├── manifest.webmanifest   # PWA 配置
+├── index.html          # 入口
+├── app.js              # 主逻辑
+├── spaced-repetition.js # 算法
+├── richtext.js         # Markdown渲染
+├── tags.js             # 标签
+├── search.js           # 搜索
+├── styles.css          # 样式
+├── sw.js               # Service Worker
+├── manifest.webmanifest # PWA配置
 ├── data/
-│   └── cards.js           # 题库数据
-├── assets/
-│   └── icon.svg           # 应用图标
-├── README.md              # 项目说明
-├── SETUP.md               # 安装指南（本文件）
-└── LICENSE                # 开源协议
+│   └── cards.js        # 题库
+└── assets/
+    └── icon.svg        # 图标
 ```
 
-### 技术栈
+## 技术栈
 
-- 纯原生 HTML/CSS/JavaScript
-- 无框架依赖
-- PWA 技术
-- LocalStorage 数据存储
-
-### 扩展开发
-
-如需添加新功能，可以：
-
-1. 创建新的模块文件
-2. 在 `index.html` 中引入
-3. 在 `app.js` 中集成
-
-## 软件著作权申请说明
-
-本项目可作为软件著作权申请的材料，包含：
-
-1. **源代码**：所有 `.js` 文件
-2. **用户文档**：README.md 和 SETUP.md
-3. **设计文档**：代码中的注释和文档
-4. **功能说明**：见 README.md
-
-### 建议的软著名称
-
-- 智能闪卡学习系统
-- 基于遗忘曲线的自适应学习平台
-- 间隔重复闪卡复习软件
-
-### 主要功能特点
-
-1. 基于艾宾浩斯遗忘曲线的智能复习调度
-2. 支持 Markdown 的富文本内容展示
-3. 灵活的标签分类和筛选系统
-4. 高效的全文搜索功能
-5. PWA 支持，可离线使用
-
-## 许可证
-
-MIT License - 可自由使用和修改
-
-## 致谢
-
-基于 [xg-flashcards-pwa](https://github.com/nuki019/xg-flashcards-pwa) 增强开发
+纯原生HTML/CSS/JavaScript，没用任何框架。数据存在localStorage，支持PWA离线使用。
 
 ---
 
-如有问题或建议，欢迎提 Issue 或 PR！
+MIT License

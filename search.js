@@ -1,185 +1,182 @@
 /**
- * 搜索功能模块
- * 支持全文搜索、实时搜索、搜索高亮、搜索历史
+ * 搜索引擎模块
+ * 支持全文搜索、搜索历史、结果高亮
+ * 写得比较朴素，没用什么高级算法
  */
 
-const SearchEngine = {
-  // 搜索历史存储键
-  HISTORY_KEY: 'xg-flashcard-search-history',
+var SearchEngine = (function() {
+  "use strict";
 
-  // 最大历史记录数
-  MAX_HISTORY: 20,
+  // 搜索历史的localStorage key
+  var HISTORY_STORE_KEY = "xg-flashcard-search-history";
 
-  // 搜索历史
-  history: [],
+  // 最多保存多少条搜索历史
+  var MAX_HISTORY_ITEMS = 20;
 
-  // 当前搜索状态
-  currentQuery: '',
-  currentResults: [],
+  // 搜索历史列表
+  var searchHistory = [];
 
-  /**
-   * 初始化搜索引擎
-   */
-  init() {
-    this.loadHistory();
-  },
+  // 当前搜索词和结果
+  var lastQuery = "";
+  var lastResults = [];
+
+  // 防抖定时器
+  var debounceTimer = null;
 
   /**
-   * 加载搜索历史
+   * 初始化，加载搜索历史
    */
-  loadHistory() {
+  function initSearchEngine() {
+    loadSearchHistory();
+  }
+
+  /**
+   * 从localStorage加载搜索历史
+   */
+  function loadSearchHistory() {
     try {
-      const saved = localStorage.getItem(this.HISTORY_KEY);
-      this.history = saved ? JSON.parse(saved) : [];
+      var saved = localStorage.getItem(HISTORY_STORE_KEY);
+      searchHistory = saved ? JSON.parse(saved) : [];
     } catch (e) {
-      console.error('Failed to load search history:', e);
-      this.history = [];
+      // 解析失败就清空
+      console.warn("搜索历史加载失败:", e);
+      searchHistory = [];
     }
-  },
+  }
 
   /**
-   * 保存搜索历史
+   * 保存搜索历史到localStorage
    */
-  saveHistory() {
+  function saveSearchHistory() {
     try {
-      localStorage.setItem(this.HISTORY_KEY, JSON.stringify(this.history));
+      localStorage.setItem(HISTORY_STORE_KEY, JSON.stringify(searchHistory));
     } catch (e) {
-      console.error('Failed to save search history:', e);
+      console.error("搜索历史保存失败:", e);
     }
-  },
+  }
 
   /**
-   * 添加到搜索历史
-   * @param {string} query - 搜索词
+   * 添加一条搜索历史
+   * 会去重，最新的放最前面
    */
-  addToHistory(query) {
+  function addHistoryItem(query) {
     if (!query || query.trim().length === 0) return;
 
-    const normalizedQuery = query.trim();
+    var cleaned = query.trim();
 
-    // 移除重复项
-    this.history = this.history.filter(item => item !== normalizedQuery);
-
-    // 添加到开头
-    this.history.unshift(normalizedQuery);
-
-    // 限制数量
-    if (this.history.length > this.MAX_HISTORY) {
-      this.history = this.history.slice(0, this.MAX_HISTORY);
+    // 去掉重复的
+    var filtered = [];
+    var i = 0;
+    while (i < searchHistory.length) {
+      if (searchHistory[i] !== cleaned) {
+        filtered.push(searchHistory[i]);
+      }
+      i++;
     }
 
-    this.saveHistory();
-  },
+    // 新的放最前面
+    filtered.unshift(cleaned);
+
+    // 超过上限就截断
+    if (filtered.length > MAX_HISTORY_ITEMS) {
+      filtered = filtered.slice(0, MAX_HISTORY_ITEMS);
+    }
+
+    searchHistory = filtered;
+    saveSearchHistory();
+  }
 
   /**
-   * 清除搜索历史
+   * 清空搜索历史
    */
-  clearHistory() {
-    this.history = [];
-    this.saveHistory();
-  },
+  function clearSearchHistory() {
+    searchHistory = [];
+    saveSearchHistory();
+  }
 
   /**
-   * 获取搜索历史
-   * @returns {Array} 搜索历史数组
+   * 获取搜索历史副本
    */
-  getHistory() {
-    return [...this.history];
-  },
+  function getSearchHistory() {
+    // 返回副本，别直接返回引用
+    var copy = [];
+    var i = 0;
+    while (i < searchHistory.length) {
+      copy.push(searchHistory[i]);
+      i++;
+    }
+    return copy;
+  }
 
   /**
    * 全文搜索
+   * 在指定字段中查找包含query的卡片
+   *
    * @param {Array} cards - 卡片数组
    * @param {string} query - 搜索词
    * @param {Object} options - 搜索选项
-   * @returns {Array} 搜索结果
+   * @returns {Array} 搜索结果，按匹配度排序
    */
-  search(cards, query, options = {}) {
+  function searchCards(cards, query, options) {
     if (!query || query.trim().length === 0) {
-      this.currentQuery = '';
-      this.currentResults = [];
+      lastQuery = "";
+      lastResults = [];
       return [];
     }
 
-    const normalizedQuery = query.trim().toLowerCase();
-    this.currentQuery = normalizedQuery;
+    var normalizedQuery = query.trim().toLowerCase();
+    lastQuery = normalizedQuery;
 
-    const {
-      searchFields = ['question', 'answer', 'tags', 'chapter'],
-      caseSensitive = false,
-      exactMatch = false,
-      highlightResults = true
-    } = options;
+    // 默认搜索字段
+    if (!options) options = {};
+    var fields = options.searchFields || ["question", "answer", "tags", "chapter"];
+    var caseSensitive = options.caseSensitive || false;
+    var exactMatch = options.exactMatch || false;
 
-    const results = cards.map(card => {
-      let score = 0;
-      const matches = [];
+    // 遍历所有卡片，计算匹配度
+    var results = [];
+    var cardIdx = 0;
+    while (cardIdx < cards.length) {
+      var card = cards[cardIdx];
+      var matchResult = scoreCardMatch(card, normalizedQuery, fields, caseSensitive, exactMatch);
 
-      searchFields.forEach(field => {
-        const value = this.getNestedValue(card, field);
-        if (!value) return;
+      if (matchResult.totalScore > 0) {
+        results.push({
+          card: card,
+          score: matchResult.totalScore,
+          matches: matchResult.matchedFields,
+          hasMatch: true
+        });
+      }
 
-        const stringValue = Array.isArray(value) ? value.join(' ') : String(value);
-        const normalizedValue = caseSensitive ? stringValue : stringValue.toLowerCase();
-        const queryToUse = caseSensitive ? normalizedQuery : normalizedQuery.toLowerCase();
+      cardIdx++;
+    }
 
-        let isMatch = false;
+    // 按分数降序排
+    results.sort(function(a, b) {
+      return b.score - a.score;
+    });
 
-        if (exactMatch) {
-          isMatch = normalizedValue === queryToUse;
-        } else {
-          isMatch = normalizedValue.includes(queryToUse);
-        }
+    lastResults = results;
 
-        if (isMatch) {
-          // 计算匹配分数
-          const fieldScore = this.calculateFieldScore(field, stringValue, normalizedQuery);
-          score += fieldScore;
-
-          // 记录匹配位置
-          matches.push({
-            field,
-            value: stringValue,
-            positions: this.findMatchPositions(stringValue, normalizedQuery, caseSensitive)
-          });
-        }
-      });
-
-      return {
-        card,
-        score,
-        matches,
-        hasMatch: score > 0
-      };
-    }).filter(result => result.hasMatch);
-
-    // 按分数排序
-    results.sort((a, b) => b.score - a.score);
-
-    this.currentResults = results;
-
-    // 添加到搜索历史
+    // 有结果才记录搜索历史
     if (results.length > 0) {
-      this.addToHistory(query);
+      addHistoryItem(query);
     }
 
     return results;
-  },
+  }
 
   /**
-   * 计算字段匹配分数
-   * @param {string} field - 字段名
-   * @param {string} value - 字段值
-   * @param {string} query - 搜索词
-   * @returns {number} 分数
+   * 计算单张卡片的匹配分数
+   * 不同字段权重不同
    */
-  calculateFieldScore(field, value, query) {
-    let score = 0;
-    const normalizedValue = value.toLowerCase();
-    const normalizedQuery = query.toLowerCase();
+  function scoreCardMatch(card, query, fields, caseSensitive, exactMatch) {
+    var totalScore = 0;
+    var matchedFields = [];
 
-    // 字段权重
-    const fieldWeights = {
+    // 字段权重配置
+    var FIELD_WEIGHTS = {
       question: 10,
       answer: 5,
       tags: 8,
@@ -187,330 +184,458 @@ const SearchEngine = {
       number: 2
     };
 
-    const weight = fieldWeights[field] || 1;
+    var fieldIdx = 0;
+    while (fieldIdx < fields.length) {
+      var fieldName = fields[fieldIdx];
+      var fieldValue = getNestedValue(card, fieldName);
 
-    // 完全匹配
-    if (normalizedValue === normalizedQuery) {
+      if (!fieldValue) {
+        fieldIdx++;
+        continue;
+      }
+
+      // 数组类型拼成字符串
+      var strValue = Array.isArray(fieldValue) ? fieldValue.join(" ") : String(fieldValue);
+      var compareValue = caseSensitive ? strValue : strValue.toLowerCase();
+      var compareQuery = caseSensitive ? query : query.toLowerCase();
+
+      var isMatch = false;
+      if (exactMatch) {
+        isMatch = (compareValue === compareQuery);
+      } else {
+        isMatch = (compareValue.indexOf(compareQuery) >= 0);
+      }
+
+      if (isMatch) {
+        var fieldScore = calcFieldScore(fieldName, strValue, query, FIELD_WEIGHTS);
+        totalScore += fieldScore;
+
+        matchedFields.push({
+          field: fieldName,
+          value: strValue,
+          positions: findMatchPositions(strValue, query, caseSensitive)
+        });
+      }
+
+      fieldIdx++;
+    }
+
+    return {
+      totalScore: totalScore,
+      matchedFields: matchedFields
+    };
+  }
+
+  /**
+   * 计算某个字段的匹配分数
+   * 完全匹配 > 开头匹配 > 包含匹配
+   */
+  function calcFieldScore(fieldName, fieldValue, query, weights) {
+    var score = 0;
+    var weight = weights[fieldName] || 1;
+
+    var lowerValue = fieldValue.toLowerCase();
+    var lowerQuery = query.toLowerCase();
+
+    // 完全匹配最高分
+    if (lowerValue === lowerQuery) {
       score += 100 * weight;
     }
     // 开头匹配
-    else if (normalizedValue.startsWith(normalizedQuery)) {
+    else if (lowerValue.substring(0, lowerQuery.length) === lowerQuery) {
       score += 50 * weight;
     }
-    // 单词开头匹配
-    else if (normalizedValue.includes(' ' + normalizedQuery)) {
+    // 单词开头匹配（前面是空格）
+    else if (lowerValue.indexOf(" " + lowerQuery) >= 0) {
       score += 30 * weight;
     }
     // 包含匹配
-    else if (normalizedValue.includes(normalizedQuery)) {
+    else {
       score += 10 * weight;
     }
 
-    // 匹配词数
-    const matchCount = (normalizedValue.match(new RegExp(normalizedQuery, 'g')) || []).length;
-    score += matchCount * 2 * weight;
+    // 统计出现次数，每次加2分
+    var occurrences = 0;
+    var searchFrom = 0;
+    while (true) {
+      var pos = lowerValue.indexOf(lowerQuery, searchFrom);
+      if (pos < 0) break;
+      occurrences++;
+      searchFrom = pos + 1;
+    }
+    score += occurrences * 2 * weight;
 
     return score;
-  },
-
-  /**
-   * 查找匹配位置
-   * @param {string} text - 文本
-   * @param {string} query - 搜索词
-   * @param {boolean} caseSensitive - 是否区分大小写
-   * @returns {Array} 匹配位置数组
-   */
-  findMatchPositions(text, query, caseSensitive = false) {
-    const positions = [];
-    const searchText = caseSensitive ? text : text.toLowerCase();
-    const searchQuery = caseSensitive ? query : query.toLowerCase();
-
-    let startIndex = 0;
-    while (startIndex < searchText.length) {
-      const index = searchText.indexOf(searchQuery, startIndex);
-      if (index === -1) break;
-
-      positions.push({
-        start: index,
-        end: index + searchQuery.length
-      });
-
-      startIndex = index + 1;
-    }
-
-    return positions;
-  },
+  }
 
   /**
    * 获取嵌套对象的值
-   * @param {Object} obj - 对象
-   * @param {string} path - 属性路径
-   * @returns {*} 值
+   * 支持 "a.b.c" 这种路径
    */
-  getNestedValue(obj, path) {
-    return path.split('.').reduce((current, key) => {
-      return current ? current[key] : null;
-    }, obj);
-  },
+  function getNestedValue(obj, path) {
+    var parts = path.split(".");
+    var current = obj;
+    var i = 0;
+    while (i < parts.length) {
+      if (!current) return null;
+      current = current[parts[i]];
+      i++;
+    }
+    return current;
+  }
 
   /**
-   * 高亮搜索结果
-   * @param {string} text - 原始文本
-   * @param {string} query - 搜索词
-   * @param {number} maxLength - 最大显示长度
-   * @returns {string} 高亮后的HTML
+   * 查找匹配位置
+   * 返回所有匹配的起止位置
    */
-  highlightText(text, query, maxLength = 200) {
-    if (!text || !query) return text;
+  function findMatchPositions(text, query, caseSensitive) {
+    var positions = [];
+    var searchText = caseSensitive ? text : text.toLowerCase();
+    var searchQuery = caseSensitive ? query : query.toLowerCase();
 
-    // 截断文本
-    let displayText = text;
-    if (maxLength && text.length > maxLength) {
-      // 找到匹配位置，截取包含匹配的片段
-      const matchIndex = text.toLowerCase().indexOf(query.toLowerCase());
-      if (matchIndex > maxLength / 2) {
-        const start = Math.max(0, matchIndex - maxLength / 3);
-        displayText = '...' + text.substring(start, start + maxLength) + '...';
+    var startFrom = 0;
+    while (startFrom < searchText.length) {
+      var foundIdx = searchText.indexOf(searchQuery, startFrom);
+      if (foundIdx < 0) break;
+
+      positions.push({
+        start: foundIdx,
+        end: foundIdx + searchQuery.length
+      });
+
+      // 下次从这个位置的下一个字符开始找
+      startFrom = foundIdx + 1;
+    }
+
+    return positions;
+  }
+
+  /**
+   * 高亮搜索结果中的关键词
+   * 会截断过长的文本
+   */
+  function highlightTextWithQuery(text, query, maxLen) {
+    if (!text || !query) return text;
+    if (!maxLen) maxLen = 200;
+
+    var displayText = text;
+
+    // 如果文本太长，截取包含关键词的片段
+    if (text.length > maxLen) {
+      var matchIdx = text.toLowerCase().indexOf(query.toLowerCase());
+      if (matchIdx > maxLen / 2) {
+        // 关键词在后面，截取包含关键词的部分
+        var start = Math.max(0, matchIdx - Math.floor(maxLen / 3));
+        displayText = "..." + text.substring(start, start + maxLen) + "...";
       } else {
-        displayText = text.substring(0, maxLength) + '...';
+        // 关键词在前面或没找到，从头截取
+        displayText = text.substring(0, maxLen) + "...";
       }
     }
 
-    // 高亮匹配文本
-    const regex = new RegExp(`(${this.escapeRegex(query)})`, 'gi');
+    // 正则替换高亮
+    var escapedQuery = escapeRegexChars(query);
+    var regex = new RegExp("(" + escapedQuery + ")", "gi");
     return displayText.replace(regex, '<mark class="search-highlight">$1</mark>');
-  },
+  }
 
   /**
-   * 转义正则表达式特殊字符
-   * @param {string} string - 原始字符串
-   * @returns {string} 转义后的字符串
+   * 转义正则特殊字符
    */
-  escapeRegex(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  },
+  function escapeRegexChars(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
 
   /**
-   * 渲染搜索结果
-   * @param {Array} results - 搜索结果数组
-   * @param {string} query - 搜索词
-   * @returns {string} HTML字符串
+   * 渲染搜索结果列表
    */
-  renderResults(results, query) {
+  function renderSearchResults(results, query) {
     if (!results || results.length === 0) {
       return '<div class="search-results empty">未找到匹配的卡片</div>';
     }
 
-    let html = `<div class="search-results">`;
-    html += `<div class="search-results-header">找到 ${results.length} 个结果</div>`;
+    var html = '<div class="search-results">';
+    html += '<div class="search-results-header">找到 ' + results.length + " 个结果</div>";
 
-    results.forEach((result, index) => {
-      const card = result.card;
-      const preview = this.highlightText(card.question, query, 100);
+    var i = 0;
+    while (i < results.length) {
+      var result = results[i];
+      var card = result.card;
+      var preview = highlightTextWithQuery(card.question, query, 100);
 
-      html += `<div class="search-result-item" data-card-id="${card.id}" onclick="SearchEngine.selectResult('${card.id}')">
-                <div class="result-index">${index + 1}</div>
-                <div class="result-content">
-                  <div class="result-question">${preview}</div>
-                  <div class="result-meta">
-                    ${card.number ? `<span class="result-number">${card.number}</span>` : ''}
-                    ${card.chapter ? `<span class="result-chapter">${card.chapter}</span>` : ''}
-                    ${card.tags ? card.tags.map(tag => `<span class="result-tag">${tag}</span>`).join('') : ''}
-                  </div>
-                  <div class="result-score">匹配度: ${Math.round(result.score)}</div>
-                </div>
-               </div>`;
-    });
+      html += '<div class="search-result-item" data-card-id="' + card.id + '"';
+      html += ' onclick="SearchEngine.selectResult(\'' + card.id + "')\">";
 
-    html += '</div>';
+      // 序号
+      html += '<div class="result-index">' + (i + 1) + "</div>";
+
+      // 内容
+      html += '<div class="result-content">';
+      html += '<div class="result-question">' + preview + "</div>";
+      html += '<div class="result-meta">';
+
+      if (card.number) {
+        html += '<span class="result-number">' + card.number + "</span>";
+      }
+      if (card.chapter) {
+        html += '<span class="result-chapter">' + card.chapter + "</span>";
+      }
+      if (card.tags) {
+        var t = 0;
+        while (t < card.tags.length) {
+          html += '<span class="result-tag">' + card.tags[t] + "</span>";
+          t++;
+        }
+      }
+
+      html += "</div>";
+      html += '<div class="result-score">匹配度: ' + Math.round(result.score) + "</div>";
+      html += "</div>";
+
+      html += "</div>";
+      i++;
+    }
+
+    html += "</div>";
     return html;
-  },
+  }
 
   /**
    * 渲染搜索历史
-   * @returns {string} HTML字符串
    */
-  renderHistory() {
-    if (this.history.length === 0) {
+  function renderSearchHistoryPanel() {
+    if (searchHistory.length === 0) {
       return '<div class="search-history empty">暂无搜索历史</div>';
     }
 
-    let html = '<div class="search-history">';
+    var html = '<div class="search-history">';
     html += '<div class="history-header">';
-    html += '<h4>搜索历史</h4>';
+    html += "<h4>搜索历史</h4>";
     html += '<button class="clear-history" onclick="SearchEngine.clearHistory(); SearchEngine.renderSearchPanel();">清除</button>';
-    html += '</div>';
+    html += "</div>";
     html += '<div class="history-list">';
 
-    this.history.forEach(query => {
-      html += `<div class="history-item" onclick="SearchEngine.selectHistory('${query}')">
-                <span class="history-icon">🔍</span>
-                <span class="history-text">${query}</span>
-                <button class="history-remove" onclick="event.stopPropagation(); SearchEngine.removeFromHistory('${query}')">&times;</button>
-               </div>`;
-    });
+    var i = 0;
+    while (i < searchHistory.length) {
+      var query = searchHistory[i];
+      html += '<div class="history-item" onclick="SearchEngine.selectHistory(\'' + escapeForHtml(query) + "')\">";
+      html += '<span class="history-icon">🔍</span>';
+      html += '<span class="history-text">' + escapeForHtml(query) + "</span>";
+      html += '<button class="history-remove" onclick="event.stopPropagation(); SearchEngine.removeFromHistory(\'' + escapeForHtml(query) + "')\">&times;</button>";
+      html += "</div>";
+      i++;
+    }
 
-    html += '</div></div>';
+    html += "</div></div>";
     return html;
-  },
+  }
+
+  /**
+   * 转义HTML属性中的特殊字符
+   */
+  function escapeForHtml(str) {
+    return str.replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
 
   /**
    * 渲染搜索面板
    */
-  renderSearchPanel() {
-    const panel = document.getElementById('searchPanel');
+  function renderSearchPanelContent() {
+    var panel = document.getElementById("searchPanel");
     if (!panel) return;
 
-    panel.innerHTML = `
-      <div class="search-input-wrapper">
-        <input type="text"
-               id="searchInput"
-               class="search-input"
-               placeholder="搜索卡片..."
-               value="${this.currentQuery}"
-               oninput="SearchEngine.handleInput(this.value)"
-               onkeydown="SearchEngine.handleKeydown(event)">
-        <button class="search-clear" onclick="SearchEngine.clearSearch()" ${!this.currentQuery ? 'style="display:none"' : ''}>&times;</button>
-      </div>
-      <div id="searchResults" class="search-results-container">
-        ${this.currentQuery ? this.renderResults(this.currentResults, this.currentQuery) : this.renderHistory()}
-      </div>
-    `;
-  },
+    var html = "";
+    html += '<div class="search-input-wrapper">';
+    html += '<input type="text" id="searchInput" class="search-input" ';
+    html += 'placeholder="搜索卡片..." ';
+    html += 'value="' + escapeForHtml(lastQuery) + '" ';
+    html += 'oninput="SearchEngine.handleInput(this.value)" ';
+    html += 'onkeydown="SearchEngine.handleKeydown(event)">';
+    html += '<button class="search-clear" onclick="SearchEngine.clearSearch()"';
+    if (!lastQuery) html += ' style="display:none"';
+    html += ">&times;</button>";
+    html += "</div>";
+    html += '<div id="searchResults" class="search-results-container">';
+
+    if (lastQuery) {
+      html += renderSearchResults(lastResults, lastQuery);
+    } else {
+      html += renderSearchHistoryPanel();
+    }
+
+    html += "</div>";
+    panel.innerHTML = html;
+  }
 
   /**
-   * 处理输入事件
-   * @param {string} value - 输入值
+   * 处理搜索输入
+   * 带300ms防抖
    */
-  handleInput(value) {
-    this.currentQuery = value;
+  function handleSearchInput(value) {
+    lastQuery = value;
 
-    // 清除按钮显示
-    const clearBtn = document.querySelector('.search-clear');
+    // 显示/隐藏清除按钮
+    var clearBtn = document.querySelector(".search-clear");
     if (clearBtn) {
-      clearBtn.style.display = value ? 'block' : 'none';
+      clearBtn.style.display = value ? "block" : "none";
     }
 
-    // 实时搜索（防抖）
-    if (this.searchTimeout) {
-      clearTimeout(this.searchTimeout);
+    // 防抖处理
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
     }
 
-    this.searchTimeout = setTimeout(() => {
-      this.performSearch(value);
+    debounceTimer = setTimeout(function() {
+      doPerformSearch(value);
     }, 300);
-  },
+  }
 
   /**
    * 处理键盘事件
-   * @param {KeyboardEvent} event - 键盘事件
+   * ESC关闭，Enter立即搜索
    */
-  handleKeydown(event) {
-    if (event.key === 'Escape') {
-      this.closeSearchPanel();
-    } else if (event.key === 'Enter') {
-      this.performSearch(this.currentQuery);
+  function handleKeydownEvent(event) {
+    if (event.key === "Escape") {
+      closeSearchPanel();
+    } else if (event.key === "Enter") {
+      doPerformSearch(lastQuery);
     }
-  },
+  }
 
   /**
-   * 执行搜索
-   * @param {string} query - 搜索词
+   * 执行搜索（会被主应用重写）
    */
-  performSearch(query) {
-    // 这个方法会被主应用重写
-    console.log('Perform search:', query);
-  },
+  function doPerformSearch(query) {
+    console.log("执行搜索:", query);
+  }
 
   /**
-   * 选择搜索结果
-   * @param {string} cardId - 卡片ID
+   * 选择搜索结果（会被主应用重写）
    */
-  selectResult(cardId) {
-    // 这个方法会被主应用重写
-    console.log('Select result:', cardId);
-  },
+  function selectSearchResult(cardId) {
+    console.log("选中结果:", cardId);
+  }
 
   /**
-   * 选择历史搜索
-   * @param {string} query - 搜索词
+   * 选择历史搜索词
    */
-  selectHistory(query) {
-    this.currentQuery = query;
-    const input = document.getElementById('searchInput');
+  function selectHistoryItem(query) {
+    lastQuery = query;
+    var input = document.getElementById("searchInput");
     if (input) {
       input.value = query;
     }
-    this.performSearch(query);
-  },
+    doPerformSearch(query);
+  }
 
   /**
-   * 从历史中移除
-   * @param {string} query - 搜索词
+   * 从历史中移除一条
    */
-  removeFromHistory(query) {
-    this.history = this.history.filter(item => item !== query);
-    this.saveHistory();
-    this.renderSearchPanel();
-  },
+  function removeHistoryItem(query) {
+    var filtered = [];
+    var i = 0;
+    while (i < searchHistory.length) {
+      if (searchHistory[i] !== query) {
+        filtered.push(searchHistory[i]);
+      }
+      i++;
+    }
+    searchHistory = filtered;
+    saveSearchHistory();
+    renderSearchPanelContent();
+  }
 
   /**
-   * 清除搜索
+   * 清空搜索框
    */
-  clearSearch() {
-    this.currentQuery = '';
-    this.currentResults = [];
-    const input = document.getElementById('searchInput');
+  function clearSearchInput() {
+    lastQuery = "";
+    lastResults = [];
+    var input = document.getElementById("searchInput");
     if (input) {
-      input.value = '';
+      input.value = "";
       input.focus();
     }
-    this.renderSearchPanel();
-  },
+    renderSearchPanelContent();
+  }
 
   /**
    * 打开搜索面板
    */
-  openSearchPanel() {
-    const panel = document.getElementById('searchPanel');
+  function openSearchPanel() {
+    var panel = document.getElementById("searchPanel");
     if (panel) {
-      panel.classList.add('active');
-      this.renderSearchPanel();
+      panel.classList.add("active");
+      renderSearchPanelContent();
 
-      // 自动聚焦输入框
-      setTimeout(() => {
-        const input = document.getElementById('searchInput');
+      // 延迟聚焦，等DOM更新完
+      setTimeout(function() {
+        var input = document.getElementById("searchInput");
         if (input) input.focus();
       }, 100);
     }
-  },
+  }
 
   /**
    * 关闭搜索面板
    */
-  closeSearchPanel() {
-    const panel = document.getElementById('searchPanel');
+  function closeSearchPanel() {
+    var panel = document.getElementById("searchPanel");
     if (panel) {
-      panel.classList.remove('active');
-    }
-  },
-
-  /**
-   * 切换搜索面板
-   */
-  toggleSearchPanel() {
-    const panel = document.getElementById('searchPanel');
-    if (panel) {
-      if (panel.classList.contains('active')) {
-        this.closeSearchPanel();
-      } else {
-        this.openSearchPanel();
-      }
+      panel.classList.remove("active");
     }
   }
-};
 
-// 导出模块
-if (typeof module !== 'undefined' && module.exports) {
+  /**
+   * 切换搜索面板显示/隐藏
+   */
+  function toggleSearchPanel() {
+    var panel = document.getElementById("searchPanel");
+    if (!panel) return;
+
+    if (panel.classList.contains("active")) {
+      closeSearchPanel();
+    } else {
+      openSearchPanel();
+    }
+  }
+
+  // 公开接口
+  return {
+    HISTORY_KEY: HISTORY_STORE_KEY,
+    MAX_HISTORY: MAX_HISTORY_ITEMS,
+    history: searchHistory,
+    currentQuery: lastQuery,
+    currentResults: lastResults,
+    init: initSearchEngine,
+    loadHistory: loadSearchHistory,
+    saveHistory: saveSearchHistory,
+    addToHistory: addHistoryItem,
+    clearHistory: clearSearchHistory,
+    getHistory: getSearchHistory,
+    search: searchCards,
+    calculateFieldScore: calcFieldScore,
+    findMatchPositions: findMatchPositions,
+    getNestedValue: getNestedValue,
+    highlightText: highlightTextWithQuery,
+    escapeRegex: escapeRegexChars,
+    renderResults: renderSearchResults,
+    renderHistory: renderSearchHistoryPanel,
+    renderSearchPanel: renderSearchPanelContent,
+    handleInput: handleSearchInput,
+    handleKeydown: handleKeydownEvent,
+    performSearch: doPerformSearch,
+    selectResult: selectSearchResult,
+    selectHistory: selectHistoryItem,
+    removeFromHistory: removeHistoryItem,
+    clearSearch: clearSearchInput,
+    openSearchPanel: openSearchPanel,
+    closeSearchPanel: closeSearchPanel,
+    toggleSearchPanel: toggleSearchPanel
+  };
+})();
+
+// 兼容Node.js
+if (typeof module !== "undefined" && module.exports) {
   module.exports = SearchEngine;
 }
