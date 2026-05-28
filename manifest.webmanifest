@@ -1,0 +1,62 @@
+{
+  "name": "智能闪卡学习系统",
+  "short_name": "智能闪卡",
+  "description": "基于艾宾浩斯遗忘曲线的智能闪卡学习系统，支持间隔重复、富文本、标签管理和全文搜索",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f7fafc",
+  "theme_color": "#667eea",
+  "orientation": "portrait",
+  "scope": "./",
+  "lang": "zh-CN",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "assets/screenshot-1.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "闪卡学习界面"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "开始学习",
+      "short_name": "学习",
+      "description": "开始闪卡学习",
+      "url": "./index.html?mode=study",
+      "icons": [
+        {
+          "src": "assets/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "搜索卡片",
+      "short_name": "搜索",
+      "description": "搜索题库中的卡片",
+      "url": "./index.html?mode=search",
+      "icons": [
+        {
+          "src": "assets/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}

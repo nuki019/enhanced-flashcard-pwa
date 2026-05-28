@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#667eea" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="智能闪卡" />
+    <meta name="description" content="基于艾宾浩斯遗忘曲线的智能闪卡学习系统，支持间隔重复、富文本、标签管理" />
+
+    <title>智能闪卡学习系统</title>
+
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="assets/icon-192.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- 头部 -->
+      <header class="topbar">
+        <div class="title-block">
+          <p class="eyebrow">智能闪卡学习系统</p>
+          <h1 id="deckTitle">选择题库</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-button" id="searchButton" type="button" title="搜索">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+          </button>
+          <button class="icon-button" id="statsButton" type="button" title="统计">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 20V10"></path>
+              <path d="M12 20V4"></path>
+              <path d="M6 20v-6"></path>
+            </svg>
+          </button>
+          <button class="install-button" id="installButton" type="button" hidden>安装</button>
+        </div>
+      </header>
+
+      <!-- 模式选择 -->
+      <section class="mode-panel" aria-label="题库入口">
+        <button class="mode-button selected" id="subjectiveMode" type="button" data-mode="subjective">
+          <strong>主观题</strong>
+          <span id="subjectiveCount">0 张</span>
+        </button>
+        <button class="mode-button" id="objectiveMode" type="button" data-mode="objective">
+          <strong>客观题</strong>
+          <span id="objectiveCount">0 张</span>
+        </button>
+      </section>
+
+      <!-- 标签筛选 -->
+      <section class="tag-section">
+        <button class="tag-filter-button" id="tagFilterButton" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+            <line x1="7" y1="7" x2="7.01" y2="7"></line>
+          </svg>
+          <span>标签筛选</span>
+        </button>
+        <div id="activeTags"></div>
+      </section>
+
+      <!-- 学习进度 -->
+      <section class="progress-panel" aria-label="学习进度">
+        <div class="progress-track" aria-hidden="true">
+          <span id="progressBar"></span>
+        </div>
+        <div class="stat-grid">
+          <div>
+            <span id="studiedCount">0/0</span>
+            <small>已学</small>
+          </div>
+          <div>
+            <span id="masteryPercent">0%</span>
+            <small>掌握度</small>
+          </div>
+          <div>
+            <span id="todayCount">0</span>
+            <small>今日</small>
+          </div>
+          <div>
+            <span id="dueCount">0</span>
+            <small>待复习</small>
+          </div>
+        </div>
+      </section>
+
+      <!-- 间隔重复信息 -->
+      <section class="spaced-repetition-info">
+        <div class="sr-stat">
+          <span class="sr-label">保留率</span>
+          <span id="retentionRate" class="sr-value">--</span>
+        </div>
+        <div class="sr-stat">
+          <span class="sr-label">下次复习</span>
+          <span id="nextReview" class="sr-value">--</span>
+        </div>
+      </section>
+
+      <!-- 闪卡区域 -->
+      <main class="study-area">
+        <article class="flashcard" id="flashcard" role="button" tabindex="0" aria-live="polite">
+          <div class="flashcard-inner">
+            <div class="card-face card-face-front">
+              <div class="card-meta">
+                <span id="cardChapter">未分章</span>
+                <span id="cardScore">未学习</span>
+              </div>
+              <div id="cardTags" class="card-tags-container"></div>
+              <div class="card-content">
+                <p class="face-label">题目</p>
+                <div class="question-text" id="questionText"></div>
+              </div>
+            </div>
+            <div class="card-face card-face-back">
+              <div class="card-meta">
+                <span id="answerChapter">未分章</span>
+                <span id="answerScore">未学习</span>
+              </div>
+              <div id="answerTags" class="card-tags-container"></div>
+              <div class="card-content">
+                <p class="face-label">答案</p>
+                <div class="answer-question-text" id="answerQuestionText"></div>
+                <div class="answer-text" id="answerText"></div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </main>
+
+      <!-- 评分面板 -->
+      <section class="rating-panel" id="ratingPanel" hidden>
+        <p>掌握程度（基于艾宾浩斯遗忘曲线）</p>
+        <div class="rating-buttons" id="ratingButtons">
+          <button type="button" data-score="1" title="完全不记得">1</button>
+          <button type="button" data-score="2" title="勉强记住">2</button>
+          <button type="button" data-score="3" title="有些困难">3</button>
+          <button type="button" data-score="4" title="比较顺利">4</button>
+          <button type="button" data-score="5" title="非常熟练">5</button>
+          <button class="cut-button" id="cutButton" type="button" title="标记为已会">会</button>
+        </div>
+        <div class="rating-hints">
+          <span>1-2: 重新学习</span>
+          <span>3: 保持间隔</span>
+          <span>4-5: 增加间隔</span>
+        </div>
+        <button class="undo-button" id="undoCutButton" type="button" hidden>撤销上一次标会</button>
+      </section>
+
+      <!-- 底部操作 -->
+      <footer class="action-row">
+        <button id="nextButton" type="button">换一张</button>
+        <button id="resetButton" type="button" class="secondary">重置进度</button>
+      </footer>
+    </div>
+
+    <!-- 搜索面板 -->
+    <div class="panel" id="searchPanel">
+      <div class="panel-content">
+        <div class="panel-header">
+          <h3>搜索卡片</h3>
+          <button class="panel-close" onclick="SearchEngine.closeSearchPanel()">&times;</button>
+        </div>
+        <div id="searchContent"></div>
+      </div>
+    </div>
+
+    <!-- 标签面板 -->
+    <div class="panel" id="tagPanel">
+      <div class="panel-content">
+        <div class="panel-header">
+          <h3>标签筛选</h3>
+          <button class="panel-close" onclick="document.getElementById('tagPanel').classList.remove('active')">&times;</button>
+        </div>
+        <div id="tagFilterContent"></div>
+      </div>
+    </div>
+
+    <!-- 统计面板 -->
+    <div class="panel" id="statsPanel">
+      <div class="panel-content">
+        <div class="panel-header">
+          <h3>学习统计</h3>
+          <button class="panel-close" onclick="document.getElementById('statsPanel').classList.remove('active')">&times;</button>
+        </div>
+        <div id="statsContent"></div>
+      </div>
+    </div>
+
+    <!-- 脚本 -->
+    <script src="data/cards.js"></script>
+    <script src="spaced-repetition.js"></script>
+    <script src="richtext.js"></script>
+    <script src="tags.js"></script>
+    <script src="search.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

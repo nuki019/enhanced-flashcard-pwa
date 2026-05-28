@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- 背景圆角矩形 -->
+  <rect width="512" height="512" rx="80" ry="80" fill="url(#grad)"/>
+
+  <!-- 卡片1 -->
+  <rect x="100" y="120" width="220" height="280" rx="20" ry="20" fill="white" opacity="0.95" transform="rotate(-8 210 260)"/>
+
+  <!-- 卡片2 -->
+  <rect x="160" y="100" width="220" height="280" rx="20" ry="20" fill="white" opacity="1"/>
+
+  <!-- 问题标记 -->
+  <circle cx="270" cy="200" r="30" fill="#667eea" opacity="0.2"/>
+  <text x="270" y="215" font-family="Arial, sans-serif" font-size="40" font-weight="bold" fill="#667eea" text-anchor="middle">?</text>
+
+  <!-- 答案区域 -->
+  <rect x="190" y="260" width="160" height="8" rx="4" fill="#667eea" opacity="0.3"/>
+  <rect x="210" y="280" width="120" height="8" rx="4" fill="#667eea" opacity="0.2"/>
+  <rect x="220" y="300" width="100" height="8" rx="4" fill="#667eea" opacity="0.15"/>
+
+  <!-- 脑图标（象征艾宾浩斯） -->
+  <circle cx="380" cy="380" r="50" fill="white" opacity="0.9"/>
+  <path d="M360 370 Q370 350 380 360 Q390 350 400 370 Q410 380 400 390 Q390 400 380 390 Q370 400 360 390 Q350 380 360 370 Z" fill="#667eea"/>
+  <path d="M370 380 Q380 370 390 380" stroke="white" stroke-width="3" fill="none"/>
+
+  <!-- 复习曲线暗示 -->
+  <path d="M120 420 Q180 380 240 400 Q300 420 360 390" stroke="white" stroke-width="4" fill="none" opacity="0.6" stroke-linecap="round"/>
+
+  <!-- 标签点 -->
+  <circle cx="140" cy="420" r="12" fill="white" opacity="0.8"/>
+  <circle cx="170" cy="420" r="12" fill="white" opacity="0.6"/>
+  <circle cx="200" cy="420" r="12" fill="white" opacity="0.4"/>
+</svg>
